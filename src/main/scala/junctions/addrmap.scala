@@ -77,8 +77,6 @@ class AddrMap(
     var cacheable = true
     for (AddrMapEntry(name, r) <- entriesIn) {
       if (r.start != 0) {
-        val align = BigInt(1) << log2Ceil(r.size)
-        require(r.start >= base, s"region $name base address 0x${r.start.toString(16)} overlaps previous base 0x${base.toString(16)}")
         base = r.start
       } else {
         base = (base + r.size - 1) / r.size * r.size
@@ -119,6 +117,16 @@ class AddrMap(
       case (name, range: MemRange) => Some(AddrMapEntry(name, range))
       case _ => None
     }.flatten.sortBy(_.region.start)
+  }
+
+  // checks to see whether any MemRange overlaps within this AddrMap
+  flatten.combinations(2) foreach {
+    case (Seq(AddrMapEntry(an, ar), AddrMapEntry(bn, br))) =>
+      val ar_end = ar.start + ar.size
+      val br_end = br.start + br.size
+      val ar_overlaps_br = ar.start < br_end && br.start < ar_end
+      require(!ar_overlaps_br,
+        "region $an@0x${ar.start.toString(16)} overlaps region $bn@0x${br.start.toString(16)}")
   }
 
   def toRange: MemRange = MemRange(start, size, attr)
